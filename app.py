@@ -1,36 +1,30 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 import pickle
 import numpy as np
 
 app = Flask(__name__)
 
-
-model, vectorizer = pickle.load(open("models/realtime_model.pkl", "rb"))
-
-@app.route("/predict", methods=["POST"])
-def predict():
-    data = request.json
-    message = data.get("message", "")
-
-    X = vectorizer.transform([message])
-    probs = model.predict_proba(X)[0]
-    classes = model.classes_
-
-    confidence = float(np.max(probs))
-    prediction = classes[np.argmax(probs)]
-
-    if confidence < 0.60:
-        prediction = "Uncertain"
-
-    return jsonify({
-        "message": message,
-        "prediction": prediction,
-        "confidence": round(confidence * 100, 2)
-    })
+# load trained model
+with open("models/multiclass_model.pkl", "rb") as f:
+    model = pickle.load(f)
 
 @app.route("/")
 def home():
-    return "SMS Multi-Class Classification API is running"
+    return render_template("index.html")
+
+@app.route("/predict", methods=["POST"])
+def predict():
+    message = request.json["message"]
+
+    probs = model.predict_proba([message])[0]
+    classes = model.classes_
+
+    idx = np.argmax(probs)
+
+    return jsonify({
+        "prediction": classes[idx],
+        "confidence": round(probs[idx] * 100, 2)
+    })
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()
